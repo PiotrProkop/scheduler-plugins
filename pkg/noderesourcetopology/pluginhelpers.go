@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/scheduler-plugins/pkg/noderesourcetopology/stringify"
 )
 
-func initNodeTopologyInformer(tcfg *apiconfig.NodeResourceTopologyMatchArgs, handle framework.Handle) (nrtcache.Cache, error) {
+func InitNodeTopologyInformer(handle framework.Handle) (nrtcache.Cache, error) {
 	topoClient, err := topoclientset.NewForConfig(handle.KubeConfig())
 	if err != nil {
 		klog.ErrorS(err, "Cannot create clientset for NodeTopologyResource", "kubeConfig", handle.KubeConfig())
@@ -54,7 +54,11 @@ func initNodeTopologyInformer(tcfg *apiconfig.NodeResourceTopologyMatchArgs, han
 	return nrtcache.NewPassthrough(nodeTopologyLister), nil
 }
 
-func createNUMANodeList(zones topologyv1alpha1.ZoneList) NUMANodeList {
+func initNodeTopologyInformer(tcfg *apiconfig.NodeResourceTopologyMatchArgs, handle framework.Handle) (nrtcache.Cache, error) {
+	return InitNodeTopologyInformer(handle)
+}
+
+func CreateNUMANodeList(zones topologyv1alpha1.ZoneList) NUMANodeList {
 	nodes := make(NUMANodeList, 0)
 	for _, zone := range zones {
 		if zone.Type == "Node" {
@@ -76,7 +80,7 @@ func createNUMANodeList(zones topologyv1alpha1.ZoneList) NUMANodeList {
 	return nodes
 }
 
-func makePodByResourceList(resources *v1.ResourceList) *v1.Pod {
+func MakePodByResourceList(resources *v1.ResourceList) *v1.Pod {
 	return &v1.Pod{
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -120,7 +124,7 @@ func makePodWithReqAndLimitByResourceList(resourcesReq, resourcesLim *v1.Resourc
 	}
 }
 
-func makeResourceListFromZones(zones topologyv1alpha1.ZoneList) v1.ResourceList {
+func MakeResourceListFromZones(zones topologyv1alpha1.ZoneList) v1.ResourceList {
 	result := make(v1.ResourceList)
 	for _, zone := range zones {
 		for _, resInfo := range zone.Resources {
@@ -194,4 +198,26 @@ func logNRT(desc string, nrtObj *topologyv1alpha1.NodeResourceTopology) {
 		return
 	}
 	klog.V(6).Info(desc, "noderesourcetopology", string(ntrJson))
+}
+
+// subtractFromNUMA finds the correct NUMA ID's resources and subtract them from `nodes`.
+func subtractFromNUMA(nodes NUMANodeList, numaID int, container v1.Container) {
+	for i := 0; i < len(nodes); i++ {
+		if nodes[i].NUMAID != numaID {
+			continue
+		}
+
+		nRes := nodes[i].Resources
+		for resName, quan := range container.Resources.Requests {
+			nodeResQuan := nRes[resName]
+			nodeResQuan.Sub(quan)
+			// we do not expect a negative value here, since this function only called
+			// when resourcesAvailableInAnyNUMANodes function is passed
+			// but let's log here if such unlikely case will occur
+			if nodeResQuan.Sign() == -1 {
+				klog.V(4).InfoS("resource quantity should not be a negative value", "resource", resName, "quantity", nodeResQuan.String())
+			}
+			nRes[resName] = nodeResQuan
+		}
+	}
 }

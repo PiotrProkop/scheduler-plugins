@@ -123,7 +123,7 @@ func podScopeScore(pod *v1.Pod, zones topologyv1alpha1.ZoneList, scorerFn scoreS
 	// but it works with HintProviders, takes into account all possible allocations.
 	resources := util.GetPodEffectiveRequest(pod)
 
-	allocatablePerNUMA := createNUMANodeList(zones)
+	allocatablePerNUMA := CreateNUMANodeList(zones)
 	finalScore := scoreForEachNUMANode(resources, allocatablePerNUMA, scorerFn, resourceToWeightMap)
 	klog.V(5).InfoS("pod scope scoring final node score", "finalScore", finalScore)
 	return finalScore, nil
@@ -134,7 +134,7 @@ func containerScopeScore(pod *v1.Pod, zones topologyv1alpha1.ZoneList, scorerFn 
 	// https://github.com/kubernetes/kubernetes/blob/9ff3b7e744b34c099c1405d9add192adbef0b6b1/pkg/kubelet/cm/topologymanager/scope_container.go#L52
 	containers := append(pod.Spec.InitContainers, pod.Spec.Containers...)
 	contScore := make([]float64, len(containers))
-	allocatablePerNUMA := createNUMANodeList(zones)
+	allocatablePerNUMA := CreateNUMANodeList(zones)
 
 	for i, container := range containers {
 		identifier := fmt.Sprintf("%s/%s/%s", pod.Namespace, pod.Name, container.Name)

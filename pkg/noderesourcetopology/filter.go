@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+
 	"sigs.k8s.io/scheduler-plugins/pkg/noderesourcetopology/stringify"
 	"sigs.k8s.io/scheduler-plugins/pkg/util"
 )
@@ -43,7 +44,7 @@ func singleNUMAContainerLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneLis
 	klog.V(5).InfoS("Single NUMA node handler")
 
 	// prepare NUMANodes list from zoneMap
-	nodes := createNUMANodeList(zones)
+	nodes := CreateNUMANodeList(zones)
 	qos := v1qos.GetPodQOS(pod)
 
 	// Node() != nil already verified in Filter(), which is the only public entry point
@@ -64,10 +65,10 @@ func singleNUMAContainerLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneLis
 	}
 
 	for _, container := range pod.Spec.Containers {
-		logKey := fmt.Sprintf("%s/%s/%s", pod.Namespace, pod.Name, container.Name)
-		klog.V(6).InfoS("target resources", stringify.ResourceListToLoggable(logKey, container.Resources.Requests)...)
+		resources := fmt.Sprintf("%s/%s/%s", pod.Namespace, pod.Name, container.Name)
+		klog.V(6).InfoS("target resources", stringify.ResourceListToLoggable(resources, container.Resources.Requests)...)
 
-		numaID, match := resourcesAvailableInAnyNUMANodes(logKey, nodes, container.Resources.Requests, qos, nodeInfo)
+		numaID, match := resourcesAvailableInAnyNUMANodes(resources, nodes, container.Resources.Requests, qos, nodeInfo)
 		if !match {
 			// we can't align container, so definitely we can't align a pod
 			return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", container.Name))
@@ -175,13 +176,13 @@ func singleNUMAPodLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nod
 	resources := util.GetPodEffectiveRequest(pod)
 
 	logKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
-	nodes := createNUMANodeList(zones)
+	nodes := CreateNUMANodeList(zones)
 
 	// Node() != nil already verified in Filter(), which is the only public entry point
 	logNumaNodes("pod handler NUMA resources", nodeInfo.Node().Name, nodes)
 	klog.V(6).InfoS("target resources", stringify.ResourceListToLoggable(logKey, resources)...)
 
-	if _, match := resourcesAvailableInAnyNUMANodes(logKey, createNUMANodeList(zones), resources, v1qos.GetPodQOS(pod), nodeInfo); !match {
+	if _, match := resourcesAvailableInAnyNUMANodes(logKey, CreateNUMANodeList(zones), resources, v1qos.GetPodQOS(pod), nodeInfo); !match {
 		return framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align pod: %s", pod.Name))
 	}
 	return nil
@@ -192,7 +193,7 @@ func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.Cycle
 	if nodeInfo.Node() == nil {
 		return framework.NewStatus(framework.Error, "node not found")
 	}
-	if v1qos.GetPodQOS(pod) == v1.PodQOSBestEffort && !hasNonNativeResource(pod) {
+	if v1qos.GetPodQOS(pod) == v1.PodQOSBestEffort && !HasNonNativeResource(pod) {
 		return nil
 	}
 
@@ -206,6 +207,11 @@ func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.Cycle
 	klog.V(5).InfoS("Found NodeResourceTopology", "nodeTopology", klog.KObj(nodeTopology))
 	for _, policyName := range nodeTopology.TopologyPolicies {
 		if handler, ok := tm.policyHandlers[topologyv1alpha1.TopologyManagerPolicy(policyName)]; ok {
+			// skip if policyHandler found but not filter plugin for this node
+			if handler.filter == nil {
+				klog.V(5).InfoS("Filter plugin not found", "policy", policyName)
+				break
+			}
 			if status := handler.filter(pod, nodeTopology.Zones, nodeInfo); status != nil {
 				tm.nrtCache.MarkNodeDiscarded(nodeName, pod)
 				return status
@@ -217,35 +223,12 @@ func (tm *TopologyMatch) Filter(ctx context.Context, cycleState *framework.Cycle
 	return nil
 }
 
-// subtractFromNUMA finds the correct NUMA ID's resources and subtract them from `nodes`.
-func subtractFromNUMA(nodes NUMANodeList, numaID int, container v1.Container) {
-	for i := 0; i < len(nodes); i++ {
-		if nodes[i].NUMAID != numaID {
-			continue
-		}
-
-		nRes := nodes[i].Resources
-		for resName, quan := range container.Resources.Requests {
-			nodeResQuan := nRes[resName]
-			nodeResQuan.Sub(quan)
-			// we do not expect a negative value here, since this function only called
-			// when resourcesAvailableInAnyNUMANodes function is passed
-			// but let's log here if such unlikely case will occur
-			if nodeResQuan.Sign() == -1 {
-				klog.V(4).InfoS("resource quantity should not be a negative value", "resource", resName, "quantity", nodeResQuan.String())
-			}
-			nRes[resName] = nodeResQuan
-		}
-	}
-}
-
-func hasNonNativeResource(pod *v1.Pod) bool {
+func HasNonNativeResource(pod *v1.Pod) bool {
 	for _, initContainer := range pod.Spec.InitContainers {
 		for resource := range initContainer.Resources.Requests {
 			if !v1helper.IsNativeResource(resource) {
 				return true
 			}
-
 		}
 	}
 	for _, container := range pod.Spec.Containers {
@@ -253,7 +236,6 @@ func hasNonNativeResource(pod *v1.Pod) bool {
 			if !v1helper.IsNativeResource(resource) {
 				return true
 			}
-
 		}
 	}
 	return false

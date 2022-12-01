@@ -62,6 +62,13 @@ func newContainerScopedHandler() tmScopeHandler {
 	}
 }
 
+func newRestrictefPodScopedHandler() tmScopeHandler {
+	return tmScopeHandler{
+		filter: nil,
+		score:  podScopeScore,
+	}
+}
+
 type PolicyHandlerMap map[topologyv1alpha1.TopologyManagerPolicy]tmScopeHandler
 
 // TopologyMatch plugin which run simplified version of TopologyManager's admit handler
@@ -72,10 +79,12 @@ type TopologyMatch struct {
 	nrtCache            nrtcache.Cache
 }
 
-var _ framework.FilterPlugin = &TopologyMatch{}
-var _ framework.ReservePlugin = &TopologyMatch{}
-var _ framework.ScorePlugin = &TopologyMatch{}
-var _ framework.EnqueueExtensions = &TopologyMatch{}
+var (
+	_ framework.FilterPlugin      = &TopologyMatch{}
+	_ framework.ReservePlugin     = &TopologyMatch{}
+	_ framework.ScorePlugin       = &TopologyMatch{}
+	_ framework.EnqueueExtensions = &TopologyMatch{}
+)
 
 // Name returns name of the plugin. It is used in logs, etc.
 func (tm *TopologyMatch) Name() string {

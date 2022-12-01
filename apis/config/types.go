@@ -128,6 +128,8 @@ const (
 	BalancedAllocation ScoringStrategyType = "BalancedAllocation"
 	// LeastAllocated strategy favors node with the most amount of available resource
 	LeastAllocated ScoringStrategyType = "LeastAllocated"
+	// LeastAllocated strategy favors node with the most amount of available resource
+	LeastNUMANodes ScoringStrategyType = "LeastNUMANodes"
 )
 
 // ScoringStrategy define ScoringStrategyType for node resource topology plugin

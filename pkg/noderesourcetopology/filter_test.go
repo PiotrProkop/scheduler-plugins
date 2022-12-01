@@ -195,7 +195,7 @@ func TestNodeResourceTopology(t *testing.T) {
 	nodes := make([]*v1.Node, len(nodeTopologyDescs))
 	for i := range nodes {
 		nodeResTopology := nodeTopologyDescs[i].nrt
-		res := makeResourceListFromZones(nodeResTopology.Zones)
+		res := MakeResourceListFromZones(nodeResTopology.Zones)
 		nodes[i] = &v1.Node{
 			ObjectMeta: metav1.ObjectMeta{Name: nodeResTopology.Name},
 			Status: v1.NodeStatus{
@@ -219,20 +219,22 @@ func TestNodeResourceTopology(t *testing.T) {
 	}{
 		{
 			name: "Guaranteed QoS, pod with extended resource fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
 				extended:          resource.MustParse("1"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[4],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, pod with extended resource no devices; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				extended:          resource.MustParse("1")}),
+				extended:          resource.MustParse("1"),
+			}),
 			node:       nodes[4],
 			wantStatus: nil,
 		},
@@ -244,37 +246,42 @@ func TestNodeResourceTopology(t *testing.T) {
 		},
 		{
 			name: "Best effort QoS requesting devices, Pod Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+			pod: MakePodByResourceList(&v1.ResourceList{
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "Best effort QoS requesting devices, Pod Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
-				nicResourceName: *resource.NewQuantity(20, resource.DecimalSI)}),
+			pod: MakePodByResourceList(&v1.ResourceList{
+				nicResourceName: *resource.NewQuantity(20, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
 		{
 			name: "Best effort QoS requesting devices, Container Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+			pod: MakePodByResourceList(&v1.ResourceList{
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Best effort QoS requesting devices, Container Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
-				nicResourceName: *resource.NewQuantity(20, resource.DecimalSI)}),
+			pod: MakePodByResourceList(&v1.ResourceList{
+				nicResourceName: *resource.NewQuantity(20, resource.DecimalSI),
+			}),
 			node:       nodes[0],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
 		{
 			name: "Best effort QoS requesting devices and extended resources, Container Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				extended:        resource.MustParse("1"),
-				nicResourceName: *resource.NewQuantity(10, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(10, resource.DecimalSI),
+			}),
 			node:       nodes[4],
 			wantStatus: nil,
 		},
@@ -284,11 +291,13 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(3, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("3Gi"),
-					nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("4Gi"),
-					nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI),
+				},
 			),
 			node:       nodes[1],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
@@ -299,11 +308,13 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(1, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("1Gi"),
-					nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("2Gi"),
-					nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI),
+				},
 			),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
@@ -314,11 +325,13 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(1, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("1Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("2Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 			),
 			node:       nodes[2],
 			wantStatus: nil,
@@ -329,11 +342,13 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(19, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("5Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(20, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("6Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 			),
 			node:       nodes[2],
 			wantStatus: nil,
@@ -344,11 +359,13 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(3, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("3Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("4Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 			),
 			node:       nodes[1],
 			wantStatus: nil,
@@ -359,161 +376,181 @@ func TestNodeResourceTopology(t *testing.T) {
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(5, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("5Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 				&v1.ResourceList{
 					v1.ResourceCPU:    *resource.NewQuantity(6, resource.DecimalSI),
 					v1.ResourceMemory: resource.MustParse("6Gi"),
-					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)},
+					nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+				},
 			),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, minimal, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
-				v1.ResourceMemory: resource.MustParse("2Gi")}),
+				v1.ResourceMemory: resource.MustParse("2Gi"),
+			}),
 			node:       nodes[0],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, minimal, saturating zone, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    findAvailableResourceByName(nodeTopologyDescs[0].nrt.Zones[1].Resources, cpu),
-				v1.ResourceMemory: findAvailableResourceByName(nodeTopologyDescs[0].nrt.Zones[1].Resources, memory)}),
+				v1.ResourceMemory: findAvailableResourceByName(nodeTopologyDescs[0].nrt.Zones[1].Resources, memory),
+			}),
 			node:       nodes[0],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, zero quantity of unavailable resource, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
 				hugepages2Mi:      resource.MustParse("0"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[0],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, hugepages, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
 				hugepages2Mi:      resource.MustParse("64Mi"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(4, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS, requesting CPU and devices (not enough), Container Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(4, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(11, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(11, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
 		{
 			name: "Burstable QoS, requesting CPU and devices (not enough), Pod Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(2, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(6, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(6, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
 		{
 			name: "Burstable QoS requesting CPU (enough on NUMA) and devices, Pod Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(2, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "BurstableQoS requesting CPU (not enough on NUMA) and devices, Pod Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(20, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS requesting CPU (enough on NUMA) and devices, Container Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(2, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS requesting CPU (not enough on NUMA) and devices, Container Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:  *resource.NewQuantity(4, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS, requesting memory (enough on NUMA) and devices (not enough), Container Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
 		{
 			name: "Burstable QoS, requesting memory (enough on NUMA) and devices (not enough), Pod Scope Topology policy; pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
 		{
 			name: "Burstable QoS requesting memory (enough on NUMA) and devices, Pod Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS requesting memory (not enough on NUMA) and devices, Pod Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("5Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS requesting memory (enough on NUMA) and devices, Container Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("4Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS requesting memory (not enough on NUMA) and devices, Container Scope Topology policy; pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceMemory: resource.MustParse("5Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
@@ -522,7 +559,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("4Gi"),
-				nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(11, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
@@ -531,7 +569,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(6, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
@@ -540,7 +579,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
@@ -549,7 +589,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(20, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("5Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
@@ -558,7 +599,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(4, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("4Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
@@ -567,44 +609,49 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodWithReqByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(5, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("5Gi"),
-				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(5, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
 		{
 			name: "Burstable QoS with extended resources, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				extended:        resource.MustParse("1"),
 				v1.ResourceCPU:  *resource.NewQuantity(4, resource.DecimalSI),
-				nicResourceName: *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName: *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[4],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS, hugepages, pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("2Gi"),
 				hugepages2Mi:      resource.MustParse("256Mi"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
 		{
 			name: "Guaranteed QoS, pod doesn't fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(9, resource.DecimalSI),
 				v1.ResourceMemory: resource.MustParse("1Gi"),
-				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceName:   *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[0],
 			wantStatus: framework.NewStatus(framework.Unschedulable, fmt.Sprintf("cannot align container: %s", containerName)),
 		},
 		{
 			name: "Guaranteed QoS, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:             *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory:          resource.MustParse("1Gi"),
-				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI)}),
+				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI),
+			}),
 			node:       nodes[0],
 			wantStatus: nil,
 		},
@@ -613,23 +660,26 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodByResourceListWithManyContainers(&v1.ResourceList{
 				v1.ResourceCPU:             *resource.NewQuantity(3, resource.DecimalSI),
 				v1.ResourceMemory:          resource.MustParse("1Gi"),
-				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI)}, 3),
+				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI),
+			}, 3),
 			node:       nodes[2],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
 		{
 			name: "Guaranteed QoS Topology Scope, minimal, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(1, resource.DecimalSI),
-				v1.ResourceMemory: resource.MustParse("1Gi")}),
+				v1.ResourceMemory: resource.MustParse("1Gi"),
+			}),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
 		{
 			name: "Guaranteed QoS TopologyScope, minimal, saturating zone, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    findAvailableResourceByName(nodeTopologyDescs[3].nrt.Zones[0].Resources, cpu),
-				v1.ResourceMemory: findAvailableResourceByName(nodeTopologyDescs[3].nrt.Zones[0].Resources, memory)}),
+				v1.ResourceMemory: findAvailableResourceByName(nodeTopologyDescs[3].nrt.Zones[0].Resources, memory),
+			}),
 			node:       nodes[3],
 			wantStatus: nil,
 		},
@@ -638,7 +688,8 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodByResourceListWithManyContainers(&v1.ResourceList{
 				v1.ResourceCPU:             *resource.NewQuantity(1, resource.DecimalSI),
 				v1.ResourceMemory:          resource.MustParse("1Gi"),
-				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI)}, 3),
+				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI),
+			}, 3),
 			node:       nodes[2],
 			wantStatus: nil,
 		},
@@ -647,17 +698,19 @@ func TestNodeResourceTopology(t *testing.T) {
 			pod: makePodByResourceListWithManyContainers(&v1.ResourceList{
 				v1.ResourceCPU:             *resource.NewQuantity(1, resource.DecimalSI),
 				v1.ResourceMemory:          resource.MustParse("1Gi"),
-				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI)}, 3),
+				notExistingNICResourceName: *resource.NewQuantity(0, resource.DecimalSI),
+			}, 3),
 			node:       nodes[3],
 			wantStatus: framework.NewStatus(framework.Unschedulable, "cannot align pod: "),
 		},
 		{
 			name: "Guaranteed QoS, hugepages, non-NUMA affine NIC, pod fit",
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:        *resource.NewQuantity(2, resource.DecimalSI),
 				v1.ResourceMemory:     resource.MustParse("2Gi"),
 				hugepages2Mi:          resource.MustParse("64Mi"),
-				nicResourceNameNoNUMA: *resource.NewQuantity(3, resource.DecimalSI)}),
+				nicResourceNameNoNUMA: *resource.NewQuantity(3, resource.DecimalSI),
+			}),
 			node:       nodes[1],
 			wantStatus: nil,
 		},
@@ -1160,7 +1213,7 @@ func TestNodeResourceTopologyMultiContainerContainerScope(t *testing.T) {
 }
 
 func makeNodeFromNodeResourceTopology(nrt *topologyv1alpha1.NodeResourceTopology) *v1.Node {
-	res := makeResourceListFromZones(nrt.Zones)
+	res := MakeResourceListFromZones(nrt.Zones)
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nrt.Name,

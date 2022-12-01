@@ -111,7 +111,7 @@ func TestNodeResourceScorePlugin(t *testing.T) {
 		}
 		// init node objects
 		for _, nrt := range nodeTopologies {
-			res := makeResourceListFromZones(nrt.Zones)
+			res := MakeResourceListFromZones(nrt.Zones)
 			nodesMap[nrt.Name] = &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: nrt.Name},
 				Status: v1.NodeStatus{
@@ -137,9 +137,10 @@ func TestNodeResourceScorePlugin(t *testing.T) {
 	}
 	pRequests := []podRequests{
 		{
-			pod: makePodByResourceList(&v1.ResourceList{
+			pod: MakePodByResourceList(&v1.ResourceList{
 				v1.ResourceCPU:    *resource.NewQuantity(2, resource.DecimalSI),
-				v1.ResourceMemory: *resource.NewQuantity(20*1024*1024, resource.DecimalSI)}),
+				v1.ResourceMemory: *resource.NewQuantity(20*1024*1024, resource.DecimalSI),
+			}),
 			name:       "Pod1",
 			wantStatus: nil,
 		},
