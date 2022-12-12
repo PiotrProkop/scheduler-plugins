@@ -74,7 +74,17 @@ func CreateNUMANodeList(zones topologyv1alpha1.ZoneList) NUMANodeList {
 			}
 			resources := extractResources(zone)
 			klog.V(6).InfoS("extracted NUMA resources", stringify.ResourceListToLoggable(zone.Name, resources)...)
-			nodes = append(nodes, NUMANode{NUMAID: numaID, Resources: resources})
+			costs := make(map[int]int, len(zone.Costs))
+			for _, cost := range zone.Costs {
+				_, err := fmt.Sscanf(cost.Name, "node-%d", &numaID)
+				if err != nil {
+					klog.ErrorS(nil, "Invalid zone format", "zone", zone.Name)
+					continue
+				}
+				costs[numaID] = int(cost.Value)
+			}
+			nodes = append(nodes, NUMANode{NUMAID: numaID, Resources: resources, Costs: costs})
+
 		}
 	}
 	return nodes

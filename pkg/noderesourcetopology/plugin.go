@@ -38,6 +38,7 @@ const (
 
 type NUMANode struct {
 	NUMAID    int
+	Costs     map[int]int
 	Resources v1.ResourceList
 }
 

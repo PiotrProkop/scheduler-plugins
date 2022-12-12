@@ -48,6 +48,119 @@ const (
 	Name = "NUMANode"
 )
 
+type NUMANodes struct {
+	nodes   noderesourcetopology.NUMANodeList
+	Mapping NUMAMapping
+}
+
+type NUMAMapping map[int]int
+
+func (n NUMANodes) Len() int {
+	return len(n.nodes)
+}
+
+func (n NUMANodes) Nodes() noderesourcetopology.NUMANodeList {
+	return n.nodes
+}
+
+func (n NUMANodes) CombineResources(nodesIDxs []int) v1.ResourceList {
+	resources := v1.ResourceList{}
+	for _, nodeIndex := range nodesIDxs {
+		for resource, quantity := range n.nodes[nodeIndex].Resources {
+			if value, ok := resources[resource]; ok {
+				value.Add(quantity)
+				resources[resource] = value
+				continue
+			}
+			resources[resource] = quantity
+		}
+	}
+
+	return resources
+}
+
+func (n NUMANodes) CombinationsAndMinDistance(k int) ([][]int, float32) {
+	combinations := combin.Combinations(len(n.nodes), k)
+
+	// max distance for NUMA node
+	var minDistance float32 = 256
+
+	for _, combination := range combinations {
+		minDistance = n.minDistance(combination, minDistance)
+	}
+
+	return combinations, minDistance
+}
+
+func (n NUMANodes) distance(combination []int) float32 {
+	var accu int
+	for _, node := range combination {
+		accu += n.nodes[node].Costs[n.Mapping[node]]
+	}
+	avgDistance := float32(accu) / float32(len(combination))
+
+	return avgDistance
+}
+
+func (n NUMANodes) minDistance(combination []int, currentMin float32) float32 {
+	avgDistance := n.distance(combination)
+
+	if avgDistance < currentMin {
+		return avgDistance
+	}
+
+	return currentMin
+}
+
+func (n NUMANodes) ResourcesForNodeID(id int) v1.ResourceList {
+	return n.nodes[id].Resources
+}
+
+func CreateNUMANodes(zones topologyv1alpha1.ZoneList) NUMANodes {
+	nodes := make(noderesourcetopology.NUMANodeList, 0)
+	idxToID := make(NUMAMapping, len(zones))
+	for i, zone := range zones {
+		if zone.Type == "Node" {
+			var numaID int
+			_, err := fmt.Sscanf(zone.Name, "node-%d", &numaID)
+			if err != nil {
+				klog.ErrorS(nil, "Invalid zone format", "zone", zone.Name)
+				continue
+			}
+			if numaID > 63 || numaID < 0 {
+				klog.ErrorS(nil, "Invalid NUMA id range", "numaID", numaID)
+				continue
+			}
+			idxToID[i] = numaID
+			resources := extractResources(zone)
+			klog.V(6).InfoS("extracted NUMA resources", stringify.ResourceListToLoggable(zone.Name, resources)...)
+			costs := make(map[int]int, len(zone.Costs))
+			for _, cost := range zone.Costs {
+				_, err := fmt.Sscanf(cost.Name, "node-%d", &numaID)
+				if err != nil {
+					klog.ErrorS(nil, "Invalid zone format", "zone", zone.Name)
+					continue
+				}
+				costs[numaID] = int(cost.Value)
+			}
+			nodes = append(nodes, noderesourcetopology.NUMANode{NUMAID: numaID, Resources: resources, Costs: costs})
+
+		}
+	}
+	return NUMANodes{
+		Mapping: idxToID,
+		nodes:   nodes,
+	}
+}
+
+func extractResources(zone topologyv1alpha1.Zone) v1.ResourceList {
+	res := make(v1.ResourceList)
+	for _, resInfo := range zone.Resources {
+		res[v1.ResourceName(resInfo.Name)] = resInfo.Available
+	}
+	return res
+}
+
 // NUMANode plugin which scores nodes based on how many NUMA nodes are required to run given POD/container
 type NUMANode struct {
 	nrtCache nrtcache.Cache
@@ -130,17 +243,22 @@ func (nn *NUMANode) ScoreExtensions() framework.ScoreExtensions {
 }
 
 func containerLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nodeName string) (int64, *framework.Status) {
-	nodes := noderesourcetopology.CreateNUMANodeList(zones)
+	nodes := CreateNUMANodes(zones)
 	qos := v1qos.GetPodQOS(pod)
 
-	maxNuma := 1
+	maxNuma := -1
+	var (
+		numaNodes       bitmask.BitMask
+		res             int
+		optimalDistance bool
+	)
 	// the order how TopologyManager asks for hint is important so doing it in the same order
 	// https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/cm/topologymanager/scope_container.go#L52
 	for _, container := range append(pod.Spec.InitContainers, pod.Spec.Containers...) {
-		logKey := fmt.Sprintf("%s/%s/%s", pod.Namespace, pod.Name, container.Name)
+		logKey := fmt.Sprintf("%s/%s/%s/%s", nodeName, pod.Namespace, pod.Name, container.Name)
 		klog.V(6).InfoS("target resources", stringify.ResourceListToLoggable(logKey, container.Resources.Requests)...)
 
-		numaNodes, res := numaNodesRequired(logKey, qos, nodes, container.Resources.Requests, nodeName)
+		numaNodes, res, optimalDistance = numaNodesRequired(logKey, qos, nodes, container.Resources.Requests)
 		if res < 1 {
 			return 0, framework.NewStatus(framework.Error, fmt.Sprintf("cannot calculate NUMA score for container: %s", container.Name))
 		}
@@ -158,19 +276,25 @@ func containerLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nodeNam
 	}
 
 	logKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
-	score := normalizeScore(maxNuma)
+	score := normalizeScore(maxNuma, optimalDistance)
 
 	klog.V(5).InfoS("final verdict", "logKey", logKey, "node", nodeName, "required nodes", maxNuma, "score", score)
 
 	return score, nil
 }
 
-func normalizeScore(numaNodes int) int64 {
+func normalizeScore(numaNodes int, optimalDistance bool) int64 {
 	numaScore := framework.MaxNodeScore / highestNUMAID
-	return framework.MaxNodeScore - int64(numaNodes)*numaScore
+
+	// if not optimal NUMA distance substract half of numaScore
+	var modifier int64 = 0
+	if !optimalDistance {
+		modifier -= numaScore / 2
+	}
+	return framework.MaxNodeScore - int64(numaNodes)*numaScore - modifier
 }
 
-func subtractFromNUMA(numaNodes noderesourcetopology.NUMANodeList, nodes []int, resources v1.ResourceList) {
+func subtractFromNUMA(numaNodes NUMANodes, nodes []int, resources v1.ResourceList) {
 	for resName, quantity := range resources {
 		for _, node := range nodes {
 			// quantity is zero no need to iterate through another NUMA node, go to another resource
@@ -178,7 +302,7 @@ func subtractFromNUMA(numaNodes noderesourcetopology.NUMANodeList, nodes []int, 
 				break
 			}
 
-			nRes := numaNodes[node].Resources
+			nRes := numaNodes.ResourcesForNodeID(node)
 			if available, ok := nRes[resName]; ok {
 				switch quantity.Cmp(available) {
 				case 0: // the same
@@ -204,42 +328,43 @@ func subtractFromNUMA(numaNodes noderesourcetopology.NUMANodeList, nodes []int, 
 }
 
 func podLevelHandler(pod *v1.Pod, zones topologyv1alpha1.ZoneList, nodeName string) (int64, *framework.Status) {
-	nodes := noderesourcetopology.CreateNUMANodeList(zones)
+	nodes := CreateNUMANodes(zones)
 	qos := v1qos.GetPodQOS(pod)
-	logKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+	logKey := fmt.Sprintf("%s/%s/%s", nodeName, pod.Namespace, pod.Name)
 
 	resources := util.GetPodEffectiveRequest(pod)
 
 	klog.V(6).InfoS("target resources", stringify.ResourceListToLoggable(logKey, resources)...)
 
-	_, res := numaNodesRequired(logKey, qos, nodes, resources, nodeName)
+	_, res, optimalDistance := numaNodesRequired(logKey, qos, nodes, resources)
 
-	score := normalizeScore(res)
-	klog.V(5).InfoS("final verdict", "logKey", logKey, "node", nodeName, "required nodes", res, "score", score)
+	score := normalizeScore(res, optimalDistance)
+	klog.V(5).InfoS("final verdict", "logKey", logKey, "required nodes", res, "score", score)
 
 	return score, nil
 }
 
-func numaNodesRequired(logKey string, qos v1.PodQOSClass, numaNodes noderesourcetopology.NUMANodeList, resources v1.ResourceList, nodeName string) (bitmask.BitMask, int) {
+func numaNodesRequired(logKey string, qos v1.PodQOSClass, numaNodes NUMANodes, resources v1.ResourceList) (bitmask.BitMask, int, bool) {
 	combinationBitmask := bitmask.NewEmptyBitMask()
-	if len(numaNodes) == 1 {
+	if numaNodes.Len() == 1 {
 		combinationBitmask.Add(0)
-		return combinationBitmask, 1
+		return combinationBitmask, 1, true
 	}
 	// we will generate combination of numa nodes from len = 1 to the number of numa nodes present on the machine
-	for i := 1; i <= len(numaNodes); i++ {
+	for i := 1; i <= numaNodes.Len(); i++ {
 		// generate combinations of len i
-		numaNodesCombination := combin.Combinations(len(numaNodes), i)
 		// iterate over combinations for given i
+		numaNodesCombination, globalMinDistance := numaNodes.CombinationsAndMinDistance(i)
 		for _, combination := range numaNodesCombination {
+			distance := numaNodes.minDistance(combination, globalMinDistance)
 			// accumulate resources for given combination
-			combinationResources := combineResources(numaNodes, combination)
+			combinationResources := numaNodes.CombineResources(combination)
 
 			resourcesFit := true
 			for resource, quantity := range resources {
 				if quantity.IsZero() {
 					// why bother? everything's fine from the perspective of this resource
-					klog.V(4).InfoS("ignoring zero-qty resource request", "logKey", logKey, "node", nodeName, "resource", resource)
+					klog.V(4).InfoS("ignoring zero-qty resource request", "logKey", logKey, "resource", resource)
 					continue
 				}
 
@@ -261,30 +386,14 @@ func numaNodesRequired(logKey string, qos v1.PodQOSClass, numaNodes noderesource
 			// combin.Combinations is generating combinations in an order from the smallest to highest value
 			if resourcesFit {
 				combinationBitmask.Add(combination...)
-				return combinationBitmask, i
+				return combinationBitmask, i, distance == globalMinDistance
 			}
 		}
 	}
 
 	// score plugin should be running after resource filter plugin so we should always find sufficient amount of NUMA nodes
-	klog.V(1).InfoS("Shouldn't be here", "logKey", logKey, "node", nodeName)
-	return combinationBitmask, -1
-}
-
-func combineResources(numaNodes noderesourcetopology.NUMANodeList, combination []int) v1.ResourceList {
-	resources := v1.ResourceList{}
-	for _, nodeIndex := range combination {
-		for resource, quantity := range numaNodes[nodeIndex].Resources {
-			if value, ok := resources[resource]; ok {
-				value.Add(quantity)
-				resources[resource] = value
-				continue
-			}
-			resources[resource] = quantity
-		}
-	}
-
-	return resources
+	klog.V(1).InfoS("Shouldn't be here", "logKey", logKey)
+	return combinationBitmask, -1, false
 }
 
 func isCombinationSuitable(qos v1.PodQOSClass, resource v1.ResourceName, quantity, numaQuantity resource.Quantity) bool {

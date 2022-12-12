@@ -222,19 +222,21 @@ func makePodByResourceLists(resources ...*v1.ResourceList) *v1.Pod {
 func TestSubstractNUMA(t *testing.T) {
 	tcases := []struct {
 		description string
-		numaNodes   noderesourcetopology.NUMANodeList
+		numaNodes   NUMANodes
 		nodes       []int
 		resources   v1.ResourceList
 		expected    noderesourcetopology.NUMANodeList
 	}{
 		{
 			description: "simple",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -255,19 +257,21 @@ func TestSubstractNUMA(t *testing.T) {
 		},
 		{
 			description: "substract resources from 2 NUMA nodes",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
-				},
-				{
-					NUMAID: 1,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+					{
+						NUMAID: 1,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -298,7 +302,7 @@ func TestSubstractNUMA(t *testing.T) {
 	for _, tcase := range tcases {
 		t.Run(tcase.description, func(t *testing.T) {
 			subtractFromNUMA(tcase.numaNodes, tcase.nodes, tcase.resources)
-			for i, node := range tcase.numaNodes {
+			for i, node := range tcase.numaNodes.Nodes() {
 				for resName, quantity := range node.Resources {
 					if !tcase.expected[i].Resources[resName].Equal(quantity) {
 						t.Errorf("Expected %s to equal %v instead of %v", resName, tcase.expected[i].Resources[resName], quantity)
@@ -327,20 +331,23 @@ func TestNUMANodesRequired(t *testing.T) {
 	}
 	testCases := []struct {
 		description     string
-		numaNodes       noderesourcetopology.NUMANodeList
+		numaNodes       NUMANodes
 		podResources    v1.ResourceList
 		node            *v1.Node
 		expectedNuma    int
 		expectedBitmask bitmask.BitMask
+		optimalDistance bool
 	}{
 		{
 			description: "simple case, fit on 1 NUMA node",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -351,22 +358,25 @@ func TestNUMANodesRequired(t *testing.T) {
 			node:            node,
 			expectedNuma:    1,
 			expectedBitmask: NewTestBitmask(0),
+			optimalDistance: true,
 		},
 		{
 			description: "simple case, fit on 2 NUMA node",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
-				},
-				{
-					NUMAID: 1,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+					{
+						NUMAID: 1,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -377,22 +387,25 @@ func TestNUMANodesRequired(t *testing.T) {
 			node:            node,
 			expectedNuma:    2,
 			expectedBitmask: NewTestBitmask(0, 1),
+			optimalDistance: true,
 		},
 		{
 			description: "no pod resources",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
-				},
-				{
-					NUMAID: 1,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+					{
+						NUMAID: 1,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -400,22 +413,25 @@ func TestNUMANodesRequired(t *testing.T) {
 			node:            node,
 			expectedNuma:    1,
 			expectedBitmask: NewTestBitmask(0),
+			optimalDistance: true,
 		},
 		{
 			description: "can't fit",
-			numaNodes: noderesourcetopology.NUMANodeList{
-				{
-					NUMAID: 0,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+			numaNodes: NUMANodes{
+				nodes: noderesourcetopology.NUMANodeList{
+					{
+						NUMAID: 0,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
-				},
-				{
-					NUMAID: 1,
-					Resources: v1.ResourceList{
-						v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
-						v1.ResourceMemory: resource.MustParse("10Gi"),
+					{
+						NUMAID: 1,
+						Resources: v1.ResourceList{
+							v1.ResourceCPU:    *resource.NewQuantity(8, resource.DecimalSI),
+							v1.ResourceMemory: resource.MustParse("10Gi"),
+						},
 					},
 				},
 			},
@@ -426,18 +442,21 @@ func TestNUMANodesRequired(t *testing.T) {
 			node:            node,
 			expectedNuma:    -1,
 			expectedBitmask: bitmask.NewEmptyBitMask(),
+			optimalDistance: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			nodeInfo := "node"
-			bm, result := numaNodesRequired("test", v1.PodQOSGuaranteed, tc.numaNodes, tc.podResources, nodeInfo)
+			bm, result, optimalDistance := numaNodesRequired("test", v1.PodQOSGuaranteed, tc.numaNodes, tc.podResources)
 			if result != tc.expectedNuma {
 				t.Errorf("wrong result expected: %d got: %d", tc.expectedNuma, result)
 			}
 			if !bm.IsEqual(tc.expectedBitmask) {
 				t.Errorf("wrong bitmask expected: %d got: %d", tc.expectedBitmask, bm)
+			}
+			if optimalDistance != tc.optimalDistance {
+				t.Errorf("expected optimalDistance to equal: %t got: %t", tc.optimalDistance, optimalDistance)
 			}
 		})
 	}
@@ -450,30 +469,34 @@ func NewTestBitmask(bits ...int) bitmask.BitMask {
 
 func TestNormalizeScore(t *testing.T) {
 	tcases := []struct {
-		description   string
-		score         int
-		expectedScore int64
+		description     string
+		score           int
+		expectedScore   int64
+		optimalDistance bool
 	}{
 		{
-			description:   "1 numa node",
-			score:         1,
-			expectedScore: 88,
+			description:     "1 numa node",
+			score:           1,
+			expectedScore:   88,
+			optimalDistance: true,
 		},
 		{
-			description:   "2 numa nodes",
-			score:         2,
-			expectedScore: 76,
+			description:     "2 numa nodes",
+			score:           2,
+			expectedScore:   76,
+			optimalDistance: true,
 		},
 		{
-			description:   "8 numa nodes",
-			score:         8,
-			expectedScore: 4,
+			description:     "8 numa nodes",
+			score:           8,
+			expectedScore:   4,
+			optimalDistance: true,
 		},
 	}
 
 	for _, tc := range tcases {
 		t.Run(tc.description, func(t *testing.T) {
-			normalizedScore := normalizeScore(tc.score)
+			normalizedScore := normalizeScore(tc.score, tc.optimalDistance)
 			if normalizedScore != tc.expectedScore {
 				t.Errorf("Expected normalizedScore to be %d not %d", tc.expectedScore, normalizedScore)
 			}
