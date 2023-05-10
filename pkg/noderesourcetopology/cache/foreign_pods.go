@@ -33,6 +33,10 @@ var (
 )
 
 func SetupForeignPodsDetector(schedProfileName string, podInformer k8scache.SharedInformer, cc Interface) {
+	if !schedProfileNames.Has(schedProfileName) {
+		klog.V(1).InfoS("nrtcache: foreign: profileName %s not registered with Foreign Pods Detector", schedProfileName)
+		return
+	}
 	foreignCache := func(obj interface{}) {
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {

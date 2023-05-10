@@ -241,7 +241,7 @@ func (ov *OverReserve) Resync() {
 		}
 
 		klog.V(4).InfoS("nrtcache: overriding cached info", "logID", logID, "node", nodeName)
-		nrtUpdates = append(nrtUpdates, nrtCandidate)
+		nrtUpdates = append(nrtUpdates, nrtCandidate.DeepCopy())
 	}
 
 	ov.FlushNodes(logID, nrtUpdates...)

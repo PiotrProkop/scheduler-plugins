@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/pkg/scheduler"
 	schedapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
@@ -124,7 +125,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				},
 			},
 			nodeResourceTopologies: []*topologyv1alpha2.NodeResourceTopology{
-				MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -135,7 +136,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
 							noderesourcetopology.MakeTopologyResInfo(memory, "64Gi", "62Gi"),
 						}).Obj(),
-				MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "10"),
@@ -193,7 +194,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				},
 			},
 			nodeResourceTopologies: []*topologyv1alpha2.NodeResourceTopology{
-				MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -204,7 +205,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
 							noderesourcetopology.MakeTopologyResInfo(memory, "64Gi", "62Gi"),
 						}).Obj(),
-				MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "10"),
@@ -244,7 +245,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				},
 			},
 			nodeResourceTopologies: []*topologyv1alpha2.NodeResourceTopology{
-				MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -255,7 +256,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
 							noderesourcetopology.MakeTopologyResInfo(memory, "64Gi", "62Gi"),
 						}).Obj(),
-				MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "10"),
@@ -293,7 +294,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				},
 			},
 			nodeResourceTopologies: []*topologyv1alpha2.NodeResourceTopology{
-				MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -304,7 +305,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
 							noderesourcetopology.MakeTopologyResInfo(memory, "64Gi", "62Gi"),
 						}).Obj(),
-				MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "10"),
@@ -347,7 +348,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				},
 			},
 			nodeResourceTopologies: []*topologyv1alpha2.NodeResourceTopology{
-				MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -358,7 +359,7 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
 							noderesourcetopology.MakeTopologyResInfo(memory, "64Gi", "62Gi"),
 						}).Obj(),
-				MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+				MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 					Zone(
 						topologyv1alpha2.ResourceInfoList{
 							noderesourcetopology.MakeTopologyResInfo(cpu, "32", "10"),
@@ -504,7 +505,11 @@ func TestTopologyCachePluginWithoutUpdates(t *testing.T) {
 				}
 
 				if !podMatchesExpectedNode(p.pod.Namespace, p.pod.Name, nodeName, p.expectedNode) {
-					t.Errorf("misplaced pod: %q", p.pod.Name)
+					pod, err := cs.CoreV1().Pods(ns).Get(testCtx.Ctx, p.pod.Name, metav1.GetOptions{})
+					if err != nil {
+						t.Fatalf("failed to get pod: %v", err)
+					}
+					t.Errorf("misplaced pod: %q, pod status: %v", p.pod.Name, pod.Status)
 				}
 			}
 
@@ -651,7 +656,7 @@ func TestTopologyCachePluginWithUpdates(t *testing.T) {
 
 		pfpSign := mkPFP("fake-node-cache-1", tt.podDescs[0].pod)
 		updatedNRTs := []*topologyv1alpha2.NodeResourceTopology{
-			MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+			MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 				Annotations(map[string]string{
 					podfingerprint.Annotation: pfpSign,
 				}).
@@ -689,7 +694,7 @@ func TestTopologyCachePluginWithUpdates(t *testing.T) {
 		time.Sleep(time.Duration(5*matchArgs.CacheResyncPeriodSeconds) * time.Second)
 
 		updatedNRTs = []*topologyv1alpha2.NodeResourceTopology{
-			MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+			MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 				Annotations(map[string]string{
 					podfingerprint.Annotation: mkPFP("fake-node-cache-1", tt.podDescs[0].pod),
 					"foo":                     "bar", // we need _ANY_ change to the object to trigger the update
@@ -810,7 +815,7 @@ func mkPFP(nodeName string, pods ...*corev1.Pod) string {
 
 func discardReservedSchedulerProfile() schedapi.KubeSchedulerProfile {
 	nodeLockingMatchArgs := schedconfig.NodeResourceTopologyMatchArgs{
-		ScoringStrategy:      schedconfig.ScoringStrategy{Type: schedconfig.LeastAllocated},
+		ScoringStrategy:      schedconfig.ScoringStrategy{Type: schedconfig.MostAllocated},
 		DiscardReservedNodes: true,
 	}
 

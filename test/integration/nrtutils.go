@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
 
 	scheconfig "sigs.k8s.io/scheduler-plugins/apis/config"
@@ -117,6 +118,7 @@ func updateNodeResourceTopologies(ctx context.Context, topologyClient *versioned
 		}
 
 		obj.TopologyPolicies = nrt.TopologyPolicies // TODO: shallow copy
+		obj.Attributes = nrt.Attributes
 		obj.Zones = nrt.Zones.DeepCopy()
 
 		_, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Update(ctx, obj, metav1.UpdateOptions{})
@@ -156,8 +158,19 @@ func (n *nrtWrapper) Name(name string) *nrtWrapper {
 	return n
 }
 
-func (n *nrtWrapper) Policy(policy topologyv1alpha2.TopologyManagerPolicy) *nrtWrapper {
-	n.nrt.TopologyPolicies = append(n.nrt.TopologyPolicies, string(policy))
+func (n *nrtWrapper) Policy(policy string) *nrtWrapper {
+	n.nrt.Attributes = append(n.nrt.Attributes, topologyv1alpha2.AttributeInfo{
+		Name:  noderesourcetopology.AttributePolicy,
+		Value: policy,
+	})
+	return n
+}
+
+func (n *nrtWrapper) Scope(scope string) *nrtWrapper {
+	n.nrt.Attributes = append(n.nrt.Attributes, topologyv1alpha2.AttributeInfo{
+		Name:  noderesourcetopology.AttributeScope,
+		Value: scope,
+	})
 	return n
 }
 
@@ -198,6 +211,17 @@ func (n *nrtWrapper) Attributes(attrs topologyv1alpha2.AttributeList) *nrtWrappe
 }
 
 func (n *nrtWrapper) Obj() *topologyv1alpha2.NodeResourceTopology {
+	// fill Costs not to spam Warnings
+	for _, zone := range n.nrt.Zones {
+		if zone.Costs == nil {
+			for i := 0; i < len(n.nrt.Zones); i++ {
+				zone.Costs = append(zone.Costs, topologyv1alpha2.CostInfo{
+					Name:  fmt.Sprintf("node-%d", i),
+					Value: 10,
+				})
+			}
+		}
+	}
 	return &n.nrt
 }
 
@@ -268,7 +292,7 @@ func resMapToString(resMap map[corev1.ResourceName]string) string {
 
 func makeTestFullyAvailableNRTSingle() []*topologyv1alpha2.NodeResourceTopology {
 	return []*topologyv1alpha2.NodeResourceTopology{
-		MakeNRT().Name("fake-node-cache-1").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+		MakeNRT().Name("fake-node-cache-1").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 			Zone(
 				topologyv1alpha2.ResourceInfoList{
 					noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
@@ -285,7 +309,7 @@ func makeTestFullyAvailableNRTSingle() []*topologyv1alpha2.NodeResourceTopology 
 func makeTestFullyAvailableNRTs() []*topologyv1alpha2.NodeResourceTopology {
 	nrts := makeTestFullyAvailableNRTSingle()
 	return append(nrts,
-		MakeNRT().Name("fake-node-cache-2").Policy(topologyv1alpha2.SingleNUMANodeContainerLevel).
+		MakeNRT().Name("fake-node-cache-2").Policy(kubeletconfig.SingleNumaNodeTopologyManagerPolicy).Scope(kubeletconfig.ContainerTopologyManagerScope).
 			Zone(
 				topologyv1alpha2.ResourceInfoList{
 					noderesourcetopology.MakeTopologyResInfo(cpu, "32", "30"),
